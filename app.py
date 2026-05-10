@@ -32,6 +32,9 @@
 此模块实现了基于 Hi3DGen 管道的 Gradio 界面，用于从单张图像生成高保真 3D 几何模型。
 """
 
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
+
 import gradio as gr
 import os
 os.environ['SPCONV_ALGO'] = 'native'

@@ -11,6 +11,9 @@
 此模块实现了基于 Hi3DGen 管道的单图命令行生成工具，用于从单张图像生成高保真 3D 几何模型。
 """
 
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
+
 import os
 import argparse
 import tempfile
