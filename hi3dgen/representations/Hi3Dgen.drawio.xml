@@ -1,0 +1,274 @@
+<mxfile host="Electron">
+  <diagram name="第 1 页" id="h5wAqx59gOjry-gdlLm7">
+    <mxGraphModel dx="657" dy="505" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="legend_process" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1" value="处理流程 (Process)" vertex="1">
+          <mxGeometry height="40" width="160" x="40" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_data" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1" value="输入/输出数据 (Data)" vertex="1">
+          <mxGeometry height="40" width="160" x="240" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="p_network" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1" value="神经网络&#xa;(SparseStructureFlow / SLatFlow)" vertex="1">
+          <mxGeometry height="60" width="160" x="40" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="p_build_grid" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1" value="构建稠密体素网格&#xa;(construct_dense_grid)" vertex="1">
+          <mxGeometry height="60" width="160" x="440" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="p_dense_feats" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1" value="稀疏属性稠密化&#xa;(get_dense_attrs)" vertex="1">
+          <mxGeometry height="60" width="160" x="440" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="p_sample_attrs" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1" value="特征映射与采样&#xa;(sparse_cube2verts)" vertex="1">
+          <mxGeometry height="60" width="160" x="840" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="p_mc" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1" value="提取基础等值面&#xa;(marching_cubes)" vertex="1">
+          <mxGeometry height="60" width="160" x="840" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="p_deform_grid" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1" value="体素网格形变&#xa;(get_defomed_verts)" vertex="1">
+          <mxGeometry height="60" width="160" x="840" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="p_interp_color" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1" value="颜色三线性插值&#xa;(_interpolate_colors)" vertex="1">
+          <mxGeometry height="60" width="160" x="840" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="p_calc_loss" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1" value="计算一致性损失&#xa;(training only)" vertex="1">
+          <mxGeometry height="60" width="160" x="1240" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="p_apply_deform" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1" value="应用形变插值&#xa;(_apply_deformations)" vertex="1">
+          <mxGeometry height="60" width="160" x="1240" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="p_calc_normal" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1" value="重新计算网格法线&#xa;(comput_v/face_normals)" vertex="1">
+          <mxGeometry height="60" width="160" x="1600" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="d_cubefeats" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1" value="cubefeats" vertex="1">
+          <mxGeometry height="60" width="160" x="240" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="4CbXExCgX8GQlatjgwvj-2" edge="1" parent="1" source="d_coords" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="p_build_grid">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="d_coords" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1" value="coords&#xa;(稀疏体素坐标)" vertex="1">
+          <mxGeometry height="60" width="160" x="440" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="d_feats" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1" value="feats&#xa;(稀疏特征向量)" vertex="1">
+          <mxGeometry height="60" width="160" x="440" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="d_voxel_verts" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1" value="稠密体素网格顶点" vertex="1">
+          <mxGeometry height="60" width="160" x="640" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="d_sdf" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1" value="sdf_d&#xa;(稠密标量场 SDF)" vertex="1">
+          <mxGeometry height="60" width="160" x="640" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="d_deform" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1" value="deform_d&#xa;(稠密形变场)" vertex="1">
+          <mxGeometry height="60" width="160" x="640" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="d_color" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1" value="colors_d&#xa;(稠密颜色场)" vertex="1">
+          <mxGeometry height="60" width="160" x="640" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="d_voxel_attrs" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1" value="映射后的体素特征" vertex="1">
+          <mxGeometry height="60" width="160" x="1040" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="d_mesh_verts_raw" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1" value="Mesh 初始顶点" vertex="1">
+          <mxGeometry height="60" width="160" x="1040" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="d_mesh_faces" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1" value="Mesh 面片拓扑 (faces)" vertex="1">
+          <mxGeometry height="60" width="160" x="1040" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="d_deform_grids" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1" value="变形后的&#xa;体素网格坐标" vertex="1">
+          <mxGeometry height="60" width="160" x="1040" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="d_final_color" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1" value="Mesh 最终颜色" vertex="1">
+          <mxGeometry height="60" width="160" x="1040" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="d_mesh_verts_deformed" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1" value="形变后的 Mesh 顶点" vertex="1">
+          <mxGeometry height="60" width="160" x="1440" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="d_normals" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1" value="顶点法线 &amp; 面片法线" vertex="1">
+          <mxGeometry height="60" width="160" x="1800" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="d_final_result" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1" value="MeshExtractResult&#xa;(最终三维重建结果)" vertex="1">
+          <mxGeometry height="60" width="160" x="1980" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="e_1" edge="1" parent="1" source="p_network" target="d_cubefeats">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_2" edge="1" parent="1" source="d_cubefeats" style="entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="d_coords">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="400" y="230" />
+              <mxPoint x="420" y="230" />
+              <mxPoint x="420" y="140" />
+              <mxPoint x="420" y="50" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_3" edge="1" parent="1" source="d_cubefeats" target="d_feats">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_5" edge="1" parent="1" source="p_build_grid" target="d_voxel_verts">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_6" edge="1" parent="1" source="d_feats" target="p_dense_feats">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_7" edge="1" parent="1" source="p_dense_feats" target="d_sdf">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="620" y="330" />
+              <mxPoint x="620" y="250" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_8" edge="1" parent="1" source="p_dense_feats" target="d_deform">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_9" edge="1" parent="1" source="p_dense_feats" target="d_color">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="620" y="330" />
+              <mxPoint x="620" y="410" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_10" edge="1" parent="1" source="d_voxel_verts" target="p_sample_attrs">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_11" edge="1" parent="1" source="d_feats" style="exitX=0.5;exitY=0;exitDx=0;exitDy=0;" target="p_sample_attrs">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="520" y="180" />
+              <mxPoint x="700" y="180" />
+              <mxPoint x="800" y="180" />
+              <mxPoint x="800" y="150" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_12" edge="1" parent="1" source="p_sample_attrs" target="d_voxel_attrs">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_13" edge="1" parent="1" source="d_voxel_attrs" target="p_calc_loss">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_14" edge="1" parent="1" source="d_sdf" target="p_mc">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_15" edge="1" parent="1" source="p_mc" target="d_mesh_verts_raw">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1020" y="250" />
+              <mxPoint x="1020" y="230" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_16" edge="1" parent="1" source="p_mc" target="d_mesh_faces">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1020" y="250" />
+              <mxPoint x="1020" y="490" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_17" edge="1" parent="1" source="d_voxel_verts" target="p_deform_grid">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="800" y="130" />
+              <mxPoint x="800" y="330" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_18" edge="1" parent="1" source="d_deform" target="p_deform_grid">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_19" edge="1" parent="1" source="p_deform_grid" target="d_deform_grids">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_20" edge="1" parent="1" source="d_color" target="p_interp_color">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_21" edge="1" parent="1" source="d_mesh_verts_raw" target="p_interp_color">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1200" y="230" />
+              <mxPoint x="1200" y="180" />
+              <mxPoint x="820" y="180" />
+              <mxPoint x="820" y="410" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_22" edge="1" parent="1" source="p_interp_color" target="d_final_color">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_23" edge="1" parent="1" source="d_mesh_verts_raw" target="p_apply_deform">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1200" y="230" />
+              <mxPoint x="1200" y="280" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_24" edge="1" parent="1" source="d_deform_grids" target="p_apply_deform">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1200" y="330" />
+              <mxPoint x="1200" y="300" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_25" edge="1" parent="1" source="p_apply_deform" target="d_mesh_verts_deformed">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_26" edge="1" parent="1" source="d_mesh_verts_deformed" target="p_calc_normal">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_27" edge="1" parent="1" source="d_mesh_faces" style="entryX=0.5;entryY=1;entryDx=0;entryDy=0;" target="p_calc_normal">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1580" y="490" />
+              <mxPoint x="1680" y="490" />
+              <mxPoint x="1680" y="380" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_28" edge="1" parent="1" source="p_calc_normal" target="d_normals">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_29" edge="1" parent="1" source="d_mesh_verts_deformed" style="exitX=0.5;exitY=1;exitDx=0;exitDy=0;" target="d_final_result">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1510" y="350" />
+              <mxPoint x="1640" y="350" />
+              <mxPoint x="1680" y="350" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_30" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1920" y="490" />
+              <mxPoint x="1920" y="350" />
+            </Array>
+            <mxPoint x="1200" y="490" as="sourcePoint" />
+            <mxPoint x="1980" y="350" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_31" edge="1" parent="1" source="d_final_color" target="d_final_result">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1920" y="410" />
+              <mxPoint x="1920" y="350" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_32" edge="1" parent="1" source="d_normals" target="d_final_result">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1940" y="290" />
+              <mxPoint x="1960" y="290" />
+              <mxPoint x="1960" y="330" />
+              <mxPoint x="1960" y="350" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

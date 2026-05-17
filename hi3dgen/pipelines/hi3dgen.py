@@ -1,3 +1,8 @@
+"""Hi3DGen 生成流水线模块。
+
+该模块定义了 Hi3DGenPipeline 类，整合了图像预处理、特征提取、稀疏结构采样、
+结构化潜空间采样以及最终的 3D 网格解码逻辑。
+"""
 # MIT License
 
 # Copyright (c) Microsoft
@@ -29,6 +34,7 @@
 # available at https://github.com/atong01/conditional-flow-matching/blob/1.0.7/LICENSE.
 #
 # This modified file is released under the same license.
+import os
 from typing import *
 from contextlib import contextmanager
 import torch
@@ -44,6 +50,10 @@ from ..modules import sparse as sp
 
 
 class Hi3DGenPipeline(Pipeline):
+    """Hi3DGen 流水线类，负责 3D 生成的核心逻辑。
+
+    该类集成了稀疏结构生成、结构化潜空间 (Structured Latent, SLAT) 生成以及最终的网格解码。
+    """
 
     def __init__(
         self,
@@ -53,6 +63,15 @@ class Hi3DGenPipeline(Pipeline):
         slat_normalization: dict = None,
         image_cond_model: str = None,
     ):
+        """初始化 Hi3DGen 流水线。
+
+        Args:
+            models: 模型组件字典。
+            sparse_structure_sampler: 稀疏结构采样器。
+            slat_sampler: 结构化潜空间采样器。
+            slat_normalization: SLAT 归一化参数。
+            image_cond_model: 图像条件模型名称。
+        """
         if models is None:
             return
         super().__init__(models)
@@ -65,39 +84,49 @@ class Hi3DGenPipeline(Pipeline):
 
     @staticmethod
     def from_pretrained(path: str) -> "Hi3DGenPipeline":
-        """
-        Load a pretrained model.
+        """从预训练路径加载 Hi3DGen 流水线。
 
         Args:
-            path (str): The path to the model. Can be either local path or a Hugging Face repository.
+            path: 本地路径或 Hugging Face 仓库名称。
+
+        Returns:
+            加载后的 Hi3DGenPipeline 实例。
         """
         pipeline = super(Hi3DGenPipeline, Hi3DGenPipeline).from_pretrained(path)
         new_pipeline = Hi3DGenPipeline()
         new_pipeline.__dict__ = pipeline.__dict__
         args = pipeline._pretrained_args
 
+        # 初始化稀疏结构采样器
         new_pipeline.sparse_structure_sampler = getattr(samplers, args['sparse_structure_sampler']['name'])(**args['sparse_structure_sampler']['args'])
         new_pipeline.sparse_structure_sampler_params = args['sparse_structure_sampler']['params']
 
+        # 初始化 SLAT 采样器
         new_pipeline.slat_sampler = getattr(samplers, args['slat_sampler']['name'])(**args['slat_sampler']['args'])
         new_pipeline.slat_sampler_params = args['slat_sampler']['params']
 
         new_pipeline.slat_normalization = args['slat_normalization']
 
+        # 初始化图像条件模型 (如 DINOv2)
         new_pipeline._init_image_cond_model(args['image_cond_model'])
 
         return new_pipeline
     
     def _init_image_cond_model(self, name: str):
-        """
-        Initialize the image conditioning model.
+        """初始化图像条件模型（默认为 DINOv2）。
+
+        Args:
+            name: DINOv2 模型的名称（例如 'dinov2_vitl14'）。
         """
         try:
+            # 尝试从本地加载 DINOv2
             dinov2_model = torch.hub.load(os.path.join(torch.hub.get_dir(), 'facebookresearch_dinov2_main'), name, source='local',pretrained=True)
         except:
+            # 本地加载失败则从 hub 加载
             dinov2_model = torch.hub.load('facebookresearch/dinov2', name, pretrained=True)
         dinov2_model.eval()
         self.models['image_cond_model'] = dinov2_model
+        # 设置图像预处理的归一化参数
         transform = transforms.Compose([
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ])
@@ -205,7 +234,7 @@ class Hi3DGenPipeline(Pipeline):
         return output
 
     def _lazy_load_birefnet(self):
-        """Lazy loading of the BiRefNet model"""
+        """延迟加载 BiRefNet 模型，用于背景移除。"""
         from transformers import AutoImageProcessor, Mask2FormerForUniversalSegmentation, AutoModelForImageSegmentation
         self.birefnet_model = AutoModelForImageSegmentation.from_pretrained(
             'weights/BiRefNet',
@@ -214,7 +243,14 @@ class Hi3DGenPipeline(Pipeline):
         self.birefnet_model.eval()
 
     def _get_birefnet_mask(self, image: Image.Image) -> np.ndarray:
-        """Get object mask using BiRefNet"""
+        """使用 BiRefNet 获取图像的前景掩码。
+
+        Args:
+            image: 输入图像。
+
+        Returns:
+            np.ndarray: 二值掩码数组。
+        """
         image_size = (1024, 1024)
         transform_image = transforms.Compose([
             transforms.Resize(image_size),
@@ -225,6 +261,7 @@ class Hi3DGenPipeline(Pipeline):
         input_images = transform_image(image).unsqueeze(0).to(self.device)
         
         with torch.no_grad():
+            # 获取预测结果并应用 sigmoid
             preds = self.birefnet_model(input_images)[-1].sigmoid().cpu()
         
         pred = preds[0].squeeze()
@@ -232,44 +269,47 @@ class Hi3DGenPipeline(Pipeline):
         mask = pred_pil.resize(image.size)
         mask_np = np.array(mask)
 
+        # 阈值处理生成二值掩码
         return (mask_np > 128).astype(np.uint8)
 
     @torch.no_grad()
     def encode_image(self, image: Union[torch.Tensor, list[Image.Image]]) -> torch.Tensor:
-        """
-        Encode the image.
-
+        """对图像进行特征编码。
+        用 DINOv2 提取特征
         Args:
-            image (Union[torch.Tensor, list[Image.Image]]): The image to encode
+            image: 输入图像，可以是 batch 化的张量或 PIL 图像列表。
 
         Returns:
-            torch.Tensor: The encoded features.
+            torch.Tensor: 编码后的 Patch Tokens 特征。
         """
         if isinstance(image, torch.Tensor):
-            assert image.ndim == 4, "Image tensor should be batched (B, C, H, W)"
+            assert image.ndim == 4, "图像张量应该是 batch 化的 (B, C, H, W)"
         elif isinstance(image, list):
-            assert all(isinstance(i, Image.Image) for i in image), "Image list should be list of PIL images"
+            assert all(isinstance(i, Image.Image) for i in image), "图像列表应包含 PIL 图像"
+            # 缩放并转换为张量
             image = [i.resize((518, 518), Image.LANCZOS) for i in image]
             image = [np.array(i.convert('RGB')).astype(np.float32) / 255 for i in image]
             image = [torch.from_numpy(i).permute(2, 0, 1).float() for i in image]
             image = torch.stack(image).to(self.device)
         else:
-            raise ValueError(f"Unsupported type of image: {type(image)}")
+            raise ValueError(f"不支持的图像类型: {type(image)}")
         
+        # 应用归一化变换
         image = self.image_cond_model_transform(image).to(self.device)
+        # 获取 DINOv2 特征
         features = self.models['image_cond_model'](image, is_training=True)['x_prenorm']
+        # 层归一化
         patchtokens = F.layer_norm(features, features.shape[-1:])
         return patchtokens
         
     def get_cond(self, image: Union[torch.Tensor, list[Image.Image]]) -> dict:
-        """
-        Get the conditioning information for the model.
+        """获取模型的条件信息。
 
         Args:
-            image (Union[torch.Tensor, list[Image.Image]]): The image prompts.
+            image: 图像提示。
 
         Returns:
-            dict: The conditioning information
+            dict: 包含 'cond' (正向条件) 和 'neg_cond' (负向条件) 的字典。
         """
         cond = self.encode_image(image)
         neg_cond = torch.zeros_like(cond)
@@ -284,17 +324,22 @@ class Hi3DGenPipeline(Pipeline):
         num_samples: int = 1,
         sampler_params: dict = {},
     ) -> torch.Tensor:
-        """
-        Sample sparse structures with the given conditioning.
+        """根据给定的条件采样稀疏结构。
         
         Args:
-            cond (dict): The conditioning information.
-            num_samples (int): The number of samples to generate.
-            sampler_params (dict): Additional parameters for the sampler.
+            cond: 条件信息。
+            num_samples: 生成样本的数量。
+            sampler_params: 采样器的额外参数。
+
+        Returns:
+            torch.Tensor: 稀疏结构的坐标。
         """
-        # Sample occupancy latent
+        # 采样占用率潜变量 (Occupancy Latent)
+        # 获取稀疏结构生成所使用的 Flow Model
         flow_model = self.models['sparse_structure_flow_model']
+        # 获取模型分辨率
         reso = flow_model.resolution
+        # 生成初始噪声
         noise = torch.randn(num_samples, flow_model.in_channels, reso, reso, reso).to(self.device)
         sampler_params = {**self.sparse_structure_sampler_params, **sampler_params}
         z_s = self.sparse_structure_sampler.sample(
@@ -305,7 +350,7 @@ class Hi3DGenPipeline(Pipeline):
             verbose=True
         )["samples"]
         
-        # Decode occupancy latent
+        # 解码占用率潜变量以获取坐标
         decoder = self.models['sparse_structure_decoder']
         coords = torch.argwhere(decoder(z_s)>0)[:, [0, 2, 3, 4]].int()
 
@@ -316,15 +361,14 @@ class Hi3DGenPipeline(Pipeline):
         slat: sp.SparseTensor,
         formats: List[str] = ['mesh',],
     ) -> dict:
-        """
-        Decode the structured latent.
+        """对结构化潜空间 (SLAT) 进行解码。
 
         Args:
-            slat (sp.SparseTensor): The structured latent.
-            formats (List[str]): The formats to decode the structured latent to.
+            slat: 结构化潜空间张量。
+            formats: 解码的目标格式列表（如 ['mesh']）。
 
         Returns:
-            dict: The decoded structured latent.
+            dict: 包含解码后数据的字典。
         """
         ret = {}
         if 'mesh' in formats:
@@ -337,15 +381,17 @@ class Hi3DGenPipeline(Pipeline):
         coords: torch.Tensor,
         sampler_params: dict = {},
     ) -> sp.SparseTensor:
-        """
-        Sample structured latent with the given conditioning.
+        """根据给定的条件和坐标采样结构化潜空间 (SLAT)。
         
         Args:
-            cond (dict): The conditioning information.
-            coords (torch.Tensor): The coordinates of the sparse structure.
-            sampler_params (dict): Additional parameters for the sampler.
+            cond: 条件信息。
+            coords: 稀疏结构的坐标。
+            sampler_params: 采样器的额外参数。
+
+        Returns:
+            sp.SparseTensor: 采样后的 SLAT。
         """
-        # Sample structured latent
+        # 采样 SLAT
         flow_model = self.models['slat_flow_model']
         noise = sp.SparseTensor(
             feats=torch.randn(coords.shape[0], flow_model.in_channels).to(self.device),
@@ -360,6 +406,7 @@ class Hi3DGenPipeline(Pipeline):
             verbose=True
         )["samples"]
 
+        # 反归一化
         std = torch.tensor(self.slat_normalization['std'])[None].to(slat.device)
         mean = torch.tensor(self.slat_normalization['mean'])[None].to(slat.device)
         slat = slat * std + mean
@@ -377,15 +424,19 @@ class Hi3DGenPipeline(Pipeline):
         formats: List[str] = ['mesh',],
         preprocess_image: bool = True,
     ) -> dict:
-        """
-        Run the pipeline.
+        """执行生成流水线。
 
         Args:
-            image (Image.Image): The image prompt.
-            num_samples (int): The number of samples to generate.
-            sparse_structure_sampler_params (dict): Additional parameters for the sparse structure sampler.
-            slat_sampler_params (dict): Additional parameters for the structured latent sampler.
-            preprocess_image (bool): Whether to preprocess the image.
+            image: 图像提示。
+            num_samples: 生成样本的数量。
+            seed: 随机种子。
+            sparse_structure_sampler_params: 稀疏结构采样器的参数。
+            slat_sampler_params: SLAT 采样器的参数。
+            formats: 输出格式。
+            preprocess_image: 是否对输入图像进行预处理（如抠图）。
+
+        Returns:
+            dict: 解码后的结果。
         """
         if preprocess_image:
             image = self.preprocess_image(image)
@@ -403,13 +454,13 @@ class Hi3DGenPipeline(Pipeline):
         num_steps: int,
         mode: Literal['stochastic', 'multidiffusion'] = 'stochastic',
     ):
-        """
-        Inject a sampler with multiple images as condition.
+        """注入支持多图像条件的采样逻辑（上下文管理器）。
         
         Args:
-            sampler_name (str): The name of the sampler to inject.
-            num_images (int): The number of images to condition on.
-            num_steps (int): The number of steps to run the sampler for.
+            sampler_name: 采样器名称（如 'sparse_structure_sampler'）。
+            num_images: 条件图像的数量。
+            num_steps: 采样步数。
+            mode: 模式，可以是 'stochastic' (随机选取) 或 'multidiffusion' (多扩散融合)。
         """
         sampler = getattr(self, sampler_name)
         setattr(sampler, f'_old_inference_model', sampler._inference_model)
@@ -464,15 +515,20 @@ class Hi3DGenPipeline(Pipeline):
         preprocess_image: bool = True,
         mode: Literal['stochastic', 'multidiffusion'] = 'stochastic',
     ) -> dict:
-        """
-        Run the pipeline with multiple images as condition
+        """使用多张图像作为条件执行流水线。
 
         Args:
-            images (List[Image.Image]): The multi-view images of the assets
-            num_samples (int): The number of samples to generate.
-            sparse_structure_sampler_params (dict): Additional parameters for the sparse structure sampler.
-            slat_sampler_params (dict): Additional parameters for the structured latent sampler.
-            preprocess_image (bool): Whether to preprocess the image.
+            images: 素材的多视图图像列表。
+            num_samples: 生成样本的数量。
+            seed: 随机种子。
+            sparse_structure_sampler_params: 稀疏结构采样器的参数。
+            slat_sampler_params: SLAT 采样器的参数。
+            formats: 输出格式。
+            preprocess_image: 是否预处理图像。
+            mode: 多视图融合模式。
+
+        Returns:
+            dict: 解码后的结果。
         """
         if preprocess_image:
             images = [self.preprocess_image(image) for image in images]

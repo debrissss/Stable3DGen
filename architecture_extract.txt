@@ -1,0 +1,530 @@
+⋆Work done during internship at Microsoft Research
+†Corresponding author
+model, comprehensively capturing both structural (geome-
+try) and textural (appearance) information while maintain-
+ing flexibility during decoding.
+We employ rectified flow transformers tailored forSLAT
+as our 3D generation models and train models with up to
+2 billion parameters on a large 3D asset dataset of 500K
+diverse objects. Our model generates high-quality results
+with text or image conditions, significantly surpassing ex-
+isting methods, including recent ones at similar scales. We
+--
+Radiance Fields). Conversely, generative models based on
+Radiance Fields or 3D Gaussians [37, 91, 104] excel in ren-
+dering high-quality appearances but strruggle with plausible
+geometry extraction. Moreover, the unique structured or un-
+structured characteristics of different representations com-
+plicate processing through a consistent network architec-
+ture. These issues hinder the development of a standardized
+3D generative modeling paradigm, in contrast to the con-
+sensus in recent advanced 2D generation methods that learn
+generative models within a unified latent space [19, 73].
+In this paper, we aim to develop a unified and versa-
+--
+Building on SL AT, we train a family of large 3D gen-
+eration models, dubbed T RELLIS in this paper, with text
+prompts or images as conditions. A two stage pipeline is
+applied which first generates the sparse structure of SL AT,
+followed by generating the latent vectors for non-empty
+cells. We employ rectified flow transformers as our back-
+bone models and adapt them properly to handle the sparsity
+in SL AT. We train TRELLIS with up to 2 billion parameters
+on a large dataset of carefully-collected 3D assets. Through
+extensive experiments, we show that our model can create
+high-quality 3D assets with detailed geometry and vivid tex-
+--
+view images via 2D diffusions and reconstructing 3D assets
+from them. However, these 2D-assisted approaches often
+yield lower geometry quality compared to native 3D models
+learned from 3D data collections, due to inherent multiview
+inconsistency in 2D generative models.
+Rectified flow models. Rectified flow models [3, 44, 49]
+have recently emerged as a novel generative paradigm that
+challenges the dominance of diffusions [29, 79]. Recent
+works [19, 86] have demonstrated the effectiveness of them
+for large-scale image and video generation. In this paper,
+we also apply rectified flow models and demonstrate their
+abilities for 3D generation at scale.
+3. Methodology
+We aim to generate high-quality 3D assets in various 3D
+representation formats given text or image conditions. Fig-
+ure 2 shows an overview, with details described below.
+--
+(i.e., 643). Empirically, this is sufficient to reconstruct the
+original 3D asset at high fidelity, thanks to the strong repre-
+sentation capabilities of DINOv2 features together with the
+coarse structure provided by the active voxels.
+Sparse V AE for structured latents. With the voxelized
+feature f, we introduce a transformer-based V AE architec-
+ture for 3D assets encoding.
+Specifically, an encoder E first encodes f to structured
+latents z, followed by a decoderD that converts z into a 3D
+asset represented by certain 3D representation. Reconstruc-
+tion losses are then applied between the decoded 3D assets
+--
+VAE
+Encoder
+Sparse
+VAE
+Decoder
+Flow
+Transformer Dec.
+Sparse
+Flow
+Transformer
+Sp.
+Dec.
+Text
+Image
+ConditionText
+--
+𝓖S 𝓖L
+𝓓
+Figure 2. Overview of our method. Encoding & Decoding: We adopt a structured latent representation (SL AT) for 3D assets encoding,
+which defines local latents on a sparse 3D grid to represent both geometry and appearance information. It is encoded from the 3D assets
+by fusing and processing dense multiview visual features extracted from a DINOv2 encoder, and can be decoded into versatile output
+representations with different decoders. Generation: Two specialized rectified flow transformers are utilized to generate SL AT, one for
+the sparse structure and the other for local latents attached to it.
+end-to-end manner, along with a KL-penalty on zi to en-
+courage normal distribution regularization following [73].
+The encoder and decoder share the same transformer
+structure, as shown in Fig. 3a. To handle sparse voxels,
+we serialize input features from active voxels and add sinu-
+soidal positional encodings based on their voxel positions,
+creating tokens with variable context length L, which are
+subsequently processed through transformer blocks. Con-
+sidering the locality characteristic of the latents, we incor-
+porate shifted window attention [50, 99] in 3D space to en-
+hance local information interaction, which also improves
+efficiency compared to a full attention implementation.
+Decoding into versatile formats. Our structured latents
+support decoding into diverse 3D representations, such as
+3D Gaussians, Radiance Fields, and meshes, via respective
+decoders: DGS, DRF, and DM. These decoders share the
+same architecture except for their output layers, and can be
+trained using specific reconstruction losses tailored to their
+representations:
+(a) 3D Gaussians. The decoding process is formulated as:
+DGS : {(zi, pi)}L
+i=1 → {{(ok
+--
+pi + tanh( ok
+i ). The reconstruction losses consist of L1,
+D-SSIM and LPIPS [107] between rendered Gaussians and
+the ground truth images.
+FFN
+Sparse Flow Transformer
+Input
+Cond.
+MHA
+MHA
+Pos.
+--
+Sp. Conv.
+Output
+Feature
+Skip Conn.
+FFN
+Flow Transformer
+Input
+Cond.
+MHA
+MHA
+Pos.
+--
+Output
+Feature
+Linear
+Linear
+(a) (b) (c)
+Figure 3. The network structures for encoding, decoding, and gen-
+eration.
+(b) Radiance Fields. The decoding process is defined as:
+DRF : {(zi, pi)}L
+i=1 → {(vx
+i , vy
+--
+where wj
+i ∈ R45 are the flexible parameters in Flexi-
+Cubes [74] and dj
+i ∈ R8 is signed distance values for
+the eight vertices of the corresponding voxel. We append
+two convolutional upsampling blocks after the transformer
+backbone to increase the final output resolution to2563 (i.e.,
+each zi for a grid of 43), extract meshes from 0-level iso-
+surfaces, and compute L1 between rendered depth (normal)
+maps and their ground truth as the reconstruction losses.
+In practice, we adopt Gaussians to learn the encoder
+--
+We leave more implementation details in Sec. A.2.
+3.3. Structured Latents Generation
+We introduce a two-stage generation pipeline to generate
+the structured latents, which first generates the sparse struc-
+ture, followed by the local latents attached to it. For mod-
+eling the latent distribution, we employ rectified flow mod-
+els [44]. We will first provide a brief introduction to these
+models before detailing our generation pipeline.
+Rectified flow models. Rectified flow models use a lin-
+ear interpolation forward process, x(t) = (1 − t)x0 + tϵ,
+which interpolates between data samples x0 and noises ϵ
+with a timestep t. The backward process is represented as a
+time-dependent vector field, v(x, t) = ∇tx, moving noisy
+samples toward the data distribution, and can be approxi-
+mated with a neural network vθ by minimizing the condi-
+tional flow matching (CFM) objective [44]:
+LCF M (θ) = Et,x0,ϵ∥vθ(x, t) − (ϵ − x0)∥2
+2. (5)
+Sparse structure generation. In the first stage, we aim to
+generate the sparse structure {pi}L
+i=1. To enable this with
+a tensorized neural network, we convert the sparse active
+voxels into a dense binary 3D grid O ∈ { 0, 1}N ×N ×N ,
+setting voxel values to 1 if active, and 0 otherwise.
+Directly generating the dense grid O is computationally
+expensive. We introduce a simple V AE with 3D convolu-
+tional blocks to compress it into a low-resolution feature
+grid S ∈ RD×D×D×CS. Since O represents only coarse
+geometry, this compression is nearly lossless, enhancing ef-
+ficiency significantly. It also converts the discrete values in
+O into continuous features suited for rectified flow training.
+We introduce a simple transformer backboneGS for gen-
+erating S, as shown in Fig. 3b. An input dense noisy
+grid is serialized, combined with positional encodings (as
+in Sec. 3.2), and fed into the transformer for denoising.
+Timestep information is incorporated using adaptive layer
+normalization (adaLN) and a gating mechanism [67]. Con-
+ditions are injected through cross attention layers as keys
+and values. For text conditions, we use features from a pre-
+trained CLIP [71] model. For image conditions, we adopt
+--
+i=1 as the final sparse structure.
+Structured latents generation. In the second stage, we
+generate latents {zi}L
+i=1 given the structure {pi}L
+i=1 using
+a transformer GL designed for sparse structures (Fig. 3c).
+Instead of directly serializing input noisy latents as in the
+sparse V AE encoder in Sec. 3.2, we improve efficiency by
+packing them into a shorter sequence before serialization,
+similarly as done by DiT [67]. Due to our sparse struc-
+ture, we apply a downsampling block with sparse convo-
+lutions [90] to pack latents within a 23 local region, fol-
+lowed by multiple time-modulated transformer blocks. A
+convolutional upsampling block is appended at the end of
+the transformer, with skip connections to the downsampling
+block that facilitates spatial information flow. Like in GS,
+timesteps are integrated via adaLN layers, and text/image
+conditions are injected through cross-attentions.
+We train GS and GL separately using the CFM objec-
+tive in Eq. (5). After training, structured latents z =
+{(zi, pi)}L
+--
+Region-specific editing. The locality of SL AT allows for
+region-specific editing by altering voxels and latents in tar-
+geted areas while leaving others unchanged. To this end,
+we adapt Repaint [55] to our two-stage generation pipeline.
+Given a bounding box for the voxels to be edited, we mod-
+ify our flow models’ sampling processes to create new con-
+tent in that region, conditioned on the unchanged areas and
+any provided text or image prompts. Consequently, the first
+stage generates new structures within the specified region,
+and the second stage produces coherent details.
+5A rustic log cabin with
+--
+64 8 32.74 0.0250
+Table 4. Ablation study on different generation paradigms.
+Method Training set Toys4k
+CLIP ↑ FDdinov2 ↓ CLIP ↑ FDdinov2 ↓
+Stage 1 Diffusion 25.09 132.71 25.86 295.90
+Rectified flow 25.40 113.42 26.37 269.56
+Stage 2 Diffusion 25.58 100.88 26.45 244.08
+Rectified flow 25.65 95.97 26.61 240.20
+Table 5. Ablation study on model size.
+Method Training set Toys4k
+CLIP ↑ FDdinov2 ↓ CLIP ↑ FDdinov2 ↓
+B 25.41 121.45 26.47 265.26
+L 25.62 99.92 26.60 238.60
+--
+and channels. As shown in Tab. 3, while the performance
+under 323 is quite good, it tends to plateau as the number
+of latent channels increases. Switching to 643 provides a
+significant boost. We prioritize quality over efficiency and
+adopt 643 as our default setting for SL AT.
+Rectified flow v.s. diffusion. We compare rectified flow
+models with a widely used diffusion baseline [67] in Tab. 4.
+We independently alter the generation method at each stage
+using the large model size, while maintaining the XL model
+unchanged for the other stages. As shown, replacing dif-
+fusion models with rectified flow models at any stage im-
+proves both generation quality and prompt alignment.
+Model size. We examine the model’s performance with
+varying numbers of parameters. Table 5 shows that increas-
+ing the model size consistently improves the generation per-
+formance on both training distribution and Toys4k.
+--
+ing both geometry and appearance information into local-
+ized latents anchored on a sparse 3D grid, where the la-
+tents are fused and processed from dense multiview image
+features extracted by a powerful vision foundation model.
+We proposed a two-stage generation pipeline utilizing recti-
+fied flow transformers tailored for SLAT generation at scale.
+Extensive experiments demonstrated the superiority of our
+method in 3D generation, in terms of quality, versatility, and
+editability, highlighting its strong potential for a wide range
+of real-world applications in digital production.
+References
+--
+Ahmad, Ilge Akkaya, Florencia Leoni Aleman, Diogo
+Almeida, Janko Altenschmidt, Sam Altman, Shyamal
+Anadkat, et al. Gpt-4 technical report. arXiv preprint
+arXiv:2303.08774, 2023. 6
+[3] Michael Samuel Albergo and Eric Vanden-Eijnden. Build-
+ing normalizing flows with stochastic interpolants. InICLR,
+2023. 3
+[4] James Betker, Gabriel Goh, Li Jing, Tim Brooks, Jianfeng
+Wang, Linjie Li, Long Ouyang, Juntang Zhuang, Joyce
+Lee, Yufei Guo, et al. Improving image generation with
+better captions. Computer Science. https://cdn. openai.
+--
+struction. In Proceedings of the IEEE/CVF international
+conference on computer vision, pages 2416–2425, 2023. 3
+[9] Junsong Chen, YU Jincheng, GE Chongjian, Lewei Yao,
+Enze Xie, Zhongdao Wang, James Kwok, Ping Luo,
+Huchuan Lu, and Zhenguo Li. Pixart- α: Fast training of
+diffusion transformer for photorealistic text-to-image syn-
+thesis. In ICLR, 2024. 2
+[10] Yiwen Chen, Tong He, Di Huang, Weicai Ye, Sijin Chen,
+Jiaxiang Tang, Xin Chen, Zhongang Cai, Lei Yang, Gang
+Yu, et al. Meshanything: Artist-created mesh gener-
+ation with autoregressive transformers. arXiv preprint
+arXiv:2406.10163, 2024. 3
+[11] Zhaoxi Chen, Jiaxiang Tang, Yuhao Dong, Ziang Cao,
+Fangzhou Hong, Yushi Lan, Tengfei Wang, Haozhe Xie,
+Tong Wu, Shunsuke Saito, et al. 3dtopia-xl: Scaling high-
+quality 3d asset generation via primitive diffusion. arXiv
+--
+sion and Pattern Recognition , pages 21795–21806, 2024.
+2
+[19] Patrick Esser, Sumith Kulal, Andreas Blattmann, Rahim
+Entezari, Jonas M ¨uller, Harry Saini, Yam Levi, Dominik
+Lorenz, Axel Sauer, Frederic Boesel, et al. Scaling rectified
+flow transformers for high-resolution image synthesis. In
+ICML, 2024. 2, 3, 14
+[20] Huan Fu, Rongfei Jia, Lin Gao, Mingming Gong, Binqiang
+Zhao, Steve Maybank, and Dacheng Tao. 3d-future: 3d
+furniture shape with texture. International Journal of Com-
+puter Vision, pages 1–25, 2021. 6, 16
+--
+Fidler, Ming-Yu Liu, and Tsung-Yi Lin. Magic3d: High-
+resolution text-to-3d content creation. In Proceedings of
+the IEEE/CVF Conference on Computer Vision and Pattern
+Recognition, pages 300–309, 2023. 3
+[44] Yaron Lipman, Ricky TQ Chen, Heli Ben-Hamu, Maximil-
+ian Nickel, and Matthew Le. Flow matching for generative
+modeling. In ICLR, 2023. 3, 5
+[45] Lingjie Liu, Jiatao Gu, Kyaw Zaw Lin, Tat-Seng Chua, and
+Christian Theobalt. Neural sparse voxel fields. Advances in
+Neural Information Processing Systems, 33:15651–15663,
+2020. 2
+--
+[48] Ruoshi Liu, Rundi Wu, Basile Van Hoorick, Pavel Tok-
+makov, Sergey Zakharov, and Carl V ondrick. Zero-1-to-
+3: Zero-shot one image to 3d object. In Proceedings of
+the IEEE/CVF international conference on computer vi-
+sion, pages 9298–9309, 2023. 2, 3
+[49] Xingchao Liu, Chengyue Gong, and Qiang Liu. Flow
+straight and fast: Learning to generate and transfer data
+with rectified flow. In ICLR, 2023. 3
+[50] Ze Liu, Yutong Lin, Yue Cao, Han Hu, Yixuan Wei, Zheng
+Zhang, Stephen Lin, and Baining Guo. Swin transformer:
+Hierarchical vision transformer using shifted windows. In
+Proceedings of the IEEE/CVF international conference on
+computer vision, pages 10012–10022, 2021. 4
+[51] Stephen Lombardi, Tomas Simon, Gabriel Schwartz,
+Michael Zollhoefer, Yaser Sheikh, and Jason Saragih. Mix-
+ture of volumetric primitives for efficient neural rendering.
+--
+Jonathan T Barron, Ravi Ramamoorthi, and Ren Ng. Nerf:
+Representing scenes as neural radiance fields for view syn-
+thesis. Communications of the ACM, 65(1):99–106, 2021.
+2, 15
+[60] Fausto Milletari, Nassir Navab, and Seyed-Ahmad Ahmadi.
+V-net: Fully convolutional neural networks for volumetric
+medical image segmentation. In 2016 fourth international
+conference on 3D vision (3DV), pages 565–571. Ieee, 2016.
+15
+[61] Norman M ¨uller, Yawar Siddiqui, Lorenzo Porzi,
+Samuel Rota Bulo, Peter Kontschieder, and Matthias
+--
+continuous signed distance functions for shape representa-
+tion. In Proceedings of the IEEE/CVF conference on com-
+puter vision and pattern recognition, pages 165–174, 2019.
+2
+[67] William Peebles and Saining Xie. Scalable diffusion mod-
+els with transformers. In Proceedings of the IEEE/CVF In-
+ternational Conference on Computer Vision , pages 4195–
+4205, 2023. 5, 8
+[68] Ben Poole, Ajay Jain, Jonathan T Barron, and Ben Milden-
+hall. Dreamfusion: Text-to-3d using 2d diffusion. In ICLR,
+2023. 2, 3
+--
+face extraction for gradient-based mesh optimization. ACM
+Trans. Graph., 42(4), 2023. 2, 5, 15
+[75] Wenzhe Shi, Jose Caballero, Ferenc Husz ´ar, Johannes Totz,
+Andrew P Aitken, Rob Bishop, Daniel Rueckert, and Zehan
+Wang. Real-time single image and video super-resolution
+using an efficient sub-pixel convolutional neural network.
+In Proceedings of the IEEE conference on computer vision
+and pattern recognition, pages 1874–1883, 2016. 14
+[76] Yichun Shi, Peng Wang, Jianglong Ye, Long Mai, Kejie
+Li, and Xiao Yang. Mvdream: Multi-view diffusion for 3d
+generation. In ICLR, 2024. 3
+--
+shape bias. In Proceedings of the IEEE/CVF conference on
+computer vision and pattern recognition, pages 1798–1808,
+2021. 6, 7, 16
+[81] Christian Szegedy, Vincent Vanhoucke, Sergey Ioffe, Jon
+Shlens, and Zbigniew Wojna. Rethinking the inception
+architecture for computer vision. In Proceedings of the
+IEEE conference on computer vision and pattern recogni-
+tion, pages 2818–2826, 2016. 8, 18
+[82] Junshu Tang, Tengfei Wang, Bo Zhang, Ting Zhang, Ran
+Yi, Lizhuang Ma, and Dong Chen. Make-it-3d: High-
+fidelity 3d creation from a single image with diffusion prior.
+--
+Information Processing Systems, 35:10021–10039, 2022. 3
+[89] A Vaswani. Attention is all you need. Advances in Neural
+Information Processing Systems, 2017. 14
+[90] Peng-Shuai Wang, Yang Liu, Yu-Xiao Guo, Chun-Yu Sun,
+and Xin Tong. O-cnn: octree-based convolutional neural
+networks for 3d shape analysis. ACM Trans. Graph., 36(4),
+2017. 5, 14
+[91] Tengfei Wang, Bo Zhang, Ting Zhang, Shuyang Gu, Jian-
+min Bao, Tadas Baltrusaitis, Jingjing Shen, Dong Chen,
+Fang Wen, Qifeng Chen, et al. Rodin: A generative model
+for sculpting 3d digital avatars using diffusion. In Proceed-
+--
+of object shapes via 3d generative-adversarial modeling.
+Advances in neural information processing systems , 29,
+2016. 3
+[94] Shuang Wu, Youtian Lin, Feihu Zhang, Yifei Zeng, Jingxi
+Xu, Philip Torr, Xun Cao, and Yao Yao. Direct3d: Scalable
+image-to-3d generation via 3d latent diffusion transformer.
+arXiv preprint arXiv:2405.14832, 2024. 3
+[95] Jianfeng Xiang, Jiaolong Yang, Binbin Huang, and Xin
+Tong. 3d-aware image generation using 2d diffusion mod-
+els. In Proceedings of the IEEE/CVF International Confer-
+ence on Computer Vision, pages 2383–2393, 2023. 3
+--
+gios Pavlakos, and Qixing Huang. Atlas gaussians diffu-
+sion for 3d generation with infinite number of points.arXiv
+preprint arXiv:2408.13055, 2024. 3
+[99] Yu-Qi Yang, Yu-Xiao Guo, Jian-Yu Xiong, Yang Liu,
+Hao Pan, Peng-Shuai Wang, Xin Tong, and Baining Guo.
+Swin3d: A pretrained transformer backbone for 3d indoor
+scene understanding, 2023. 4
+[100] Zehao Yu, Anpei Chen, Binbin Huang, Torsten Sattler, and
+Andreas Geiger. Mip-splatting: Alias-free 3d gaussian
+splatting. In Proceedings of the IEEE/CVF Conference on
+Computer Vision and Pattern Recognition , pages 19447–
+--
+Yang Liu, and Heung-Yeung Shum. Locally attentional sdf
+diffusion for controllable 3d shape generation. ACM Trans-
+actions on Graphics (ToG), 42(4):1–13, 2023. 3
+[111] Jun-Yan Zhu, Zhoutong Zhang, Chengkai Zhang, Jiajun
+Wu, Antonio Torralba, Josh Tenenbaum, and Bill Freeman.
+Visual object networks: Image generation with disentan-
+gled 3d representations. Advances in neural information
+processing systems, 31, 2018. 3
+[112] Zi-Xin Zou, Zhipeng Yu, Yuan-Chen Guo, Yangguang Li,
+Ding Liang, Yan-Pei Cao, and Song-Hai Zhang. Triplane
+meets gaussian splatting: Fast and generalizable single-
+view 3d reconstruction with transformers. In Proceedings
+of the IEEE/CVF Conference on Computer Vision and Pat-
+tern Recognition, pages 10324–10335, 2024. 2, 3
+13Structured 3D Latents for Scalable and Versatile 3D Generation
+(Supplementary Material)
+Table 6. Network configurations used in this paper. SW stands for “Shifted Window”, MSA and MCA for “Multihead Self-Attention” and
+“Multihead Cross-Attention”, and Sp. Conv. for “Sparse Convolution”.
+Network #Layer #Dim. #Head Block Arch. Special Modules #Param.
+E S – – – – 3D Conv. U-Net 59.3M
+DS – – – – 3D Conv. U-Net 73.7M
+E 12 768 12 3D-SW-MSA + FFN 3D Swin Attn. 85.8M
+DGS 12 768 12 3D-SW-MSA + FFN 3D Swin Attn. 85.4M
+DRF 12 768 12 3D-SW-MSA + FFN 3D Swin Attn. 85.4M
+DM 12 768 12 3D-SW-MSA + FFN 3D Swin Attn. + Sp. Conv. Upsampler 90.9M
+GS-B (text ver.) 12 768 12 MSA + MCA + FFN QK Norm. 157M
+--
+GL-B (text ver.) 12 768 12 MSA + MCA + FFN QK Norm. + Sp. Conv. Downsampler / Upsampler + Skip Conn. 185M
+GL-L (text ver.) 24 1024 16 MSA + MCA + FFN QK Norm. + Sp. Conv. Downsampler / Upsampler + Skip Conn. 588M
+GL-XL (text ver.) 28 1280 16 MSA + MCA + FFN QK Norm. + Sp. Conv. Downsampler / Upsampler + Skip Conn. 1073M
+GL-L (image ver.) 24 1024 16 MSA + MCA + FFN QK Norm. + Sp. Conv. Downsampler / Upsampler + Skip Conn. 600M
+A. More Implementation Details
+A.1. Network Architectures
+The networks used in our method primarily consist of trans-
+formers [89], augmented by a few specialized modules. The
+configurations and statistics for each network are listed in
+Tab. 6. In particular, E S and DS compose the V AE de-
+signed for sparse structures, as discussed in Sec. 3.3 in the
+main paper. The remaining networks are also defined in the
+main paper. Below, we provide detailed descriptions of the
+architectures of the specialized modules introduced.
+3D convolutional U-net. The V AE for sparse structures
+(E S and DS) is introduced to enhance the efficiency of the
+structure generator GS and to convert the binary grids of
+active voxels into continuous latents for flow training. Its
+architecture is similar to the V AEs in LDM [73], but it
+employs 3D convolutions and omits self-attention metch-
+anisms. E S (DS) consists of a series of residual blocks
+and downsampling (upsampling) blocks, reducing the spa-
+tial size from 643 to 163. The feature channels are set to
+32, 128, 512 for spatial sizes of 643, 323, 163, respectively.
+--
+and GL, it is necessary to alter the spatial size of sparse ten-
+sors to increase the resolution of the SDF grid for meshes
+and to improve the efficiency of the SL AT generator, re-
+spectively. To achieve this, we employ downsampling and
+upsampling blocks equipped with sparse convolutions [90].
+These blocks are composed of residual networks with two
+sparse convolutional layers, skip connections with optional
+linear mappings, and pooling or unpooling operators. We
+use average pooling and nearest-neighbor unpooling. For
+GL, given that the structures of 643 are pre-determined, we
+only average the features from active voxels within each 23
+--
+to 0.1. The value 9e − 4 is derived from the assumption
+of a 5123 sampling rate within the (−0.5, 0.5)3 cube. For
+each active voxel, 32 Gaussians are predicted (i.e., K = 32
+in the main paper). Since original density control schemes
+are not applicable when Gaussians are predicted by neu-
+ral networks, we employ regularizations for volume [51]
+and opacity of the Gaussians to prevent their degeneration,
+specifically to avoid them becoming excessively large or
+transparent. The full training objective is:
+LGS = Lrecon + Lvol + Lα, (6)
+where Lrecon, Lvol and Lα are defined below:
+--
+diance integration, and the CP reconstruction into a single
+kernel. The training objective of DRF is Lrecon as defined
+in Eq. (7).
+(c) Meshes. We increase the spatial size of sparse structures
+from 643 to 2563, by appending two aforementioned sparse
+convolutional upsamplers after the transformer backbone.
+For DM, although our primary focus is on shape (geome-
+try), we also predict colors and normal maps for the meshes.
+As a result, the final output for each high-resolution active
+voxel is:
+(wj
+--
+term defined in FlexiCubes to ensure plausible mesh extrac-
+tion, and Ltsdf enforces the predicted signed distance values
+d to closely match the distances between grid vertices and
+the extracted mesh surface, helping to stablize the training
+process in its early stages.
+Rectified flow models. We employ rectified flow mod-
+els GS and GL for sparse structure generation and
+structured latent generation, respectively. During train-
+ing, we alter the timestep sampling distribution, replac-
+ing the logitNorm(0, 1) distribution used in SD3 with
+logitNorm(1, 1). We evaluate their performance at each

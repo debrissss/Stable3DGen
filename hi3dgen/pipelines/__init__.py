@@ -22,26 +22,35 @@
 
 # Copyright (c) [2025] [Microsoft]
 # SPDX-License-Identifier: MIT
+# 导入采样器模块
 from . import samplers
+# 导入主要的 Hi3DGen 流水线类
 from .hi3dgen import Hi3DGenPipeline
 
 def from_pretrained(path: str):
-    """
-    Load a pipeline from a model folder or a Hugging Face model hub.
+    """从本地路径或 Hugging Face 模型库加载预训练流水线。
 
     Args:
-        path: The path to the model. Can be either local path or a Hugging Face model name.
+        path: 模型的路径。可以是一个本地目录路径，或者是一个 Hugging Face 模型库的标识符。
+
+    Returns:
+        根据配置实例化并加载后的流水线对象。
     """
     import os
     import json
+    # 检查 pipeline.json 是否存在于本地路径中
     is_local = os.path.exists(f"{path}/pipeline.json")
 
     if is_local:
         config_file = f"{path}/pipeline.json"
     else:
+        # 如果不是本地路径，则从 Hugging Face Hub 下载配置文件
         from huggingface_hub import hf_hub_download
         config_file = hf_hub_download(path, "pipeline.json")
 
+    # 读取配置文件以确定流水线名称
     with open(config_file, 'r') as f:
         config = json.load(f)
+
+    # 动态获取流水线类并调用其 from_pretrained 方法
     return globals()[config['name']].from_pretrained(path)

@@ -180,15 +180,61 @@ def convert_mesh(mesh_path, export_format):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Hi3DGen 单图 3D 重建命令行工具")
-    parser.add_argument("--input_image", type=str, required=True, help="输入的单张图像文件路径 (例如: input.png)")
-    parser.add_argument("--output_mesh", type=str, required=True, help="输出的 3D 模型文件路径，后缀决定格式 (例如: output.glb, output.obj)")
-    parser.add_argument("--seed", type=int, default=0, help="随机种子，-1表示随机 (默认: 0)")
-    parser.add_argument("--ss_guidance_strength", type=float, default=3.0, help="Stage 1 Guidance 强度 (默认: 3.0)")
-    parser.add_argument("--ss_sampling_steps", type=int, default=50, help="Stage 1 采样步数 (默认: 50)")
-    parser.add_argument("--slat_guidance_strength", type=float, default=3.0, help="Stage 2 Guidance 强度 (默认: 3.0)")
-    parser.add_argument("--slat_sampling_steps", type=int, default=6, help="Stage 2 采样步数 (默认: 6)")
+    parser.add_argument("--config", type=str, default=None, help="YAML 配置文件路径 (例如: configs/default.yaml)")
+    parser.add_argument("--input_image", type=str, default=None, help="输入的单张图像文件路径 (例如: input.png)")
+    parser.add_argument("--output_mesh", type=str, default=None, help="输出的 3D 模型文件路径，后缀决定格式 (例如: output.glb, output.obj)")
+    parser.add_argument("--seed", type=int, default=None, help="随机种子，-1表示随机 (默认: 0)")
+    parser.add_argument("--ss_guidance_strength", type=float, default=None, help="Stage 1 Guidance 强度 (默认: 3.0)")
+    parser.add_argument("--ss_sampling_steps", type=int, default=None, help="Stage 1 采样步数 (默认: 50)")
+    parser.add_argument("--slat_guidance_strength", type=float, default=None, help="Stage 2 Guidance 强度 (默认: 3.0)")
+    parser.add_argument("--slat_sampling_steps", type=int, default=None, help="Stage 2 采样步数 (默认: 6)")
     
     args = parser.parse_args()
+
+    # 默认配置字典
+    default_config = {
+        "input_image": None,
+        "output_mesh": None,
+        "seed": 0,
+        "ss_guidance_strength": 3.0,
+        "ss_sampling_steps": 50,
+        "slat_guidance_strength": 3.0,
+        "slat_sampling_steps": 6
+    }
+
+    # 加载 YAML 配置文件
+    yaml_config = {}
+    if args.config:
+        if not os.path.exists(args.config):
+            print(f"Error: 找不到配置文件: {args.config}")
+            exit(1)
+        import yaml
+        print(f"正在从配置文件加载参数: {args.config}")
+        with open(args.config, 'r', encoding='utf-8') as f:
+            yaml_config = yaml.safe_load(f) or {}
+
+    # 参数优先级合并：命令行输入 (非 None) > 配置文件参数 > 默认值
+    final_config = {}
+    for key, def_val in default_config.items():
+        cli_val = getattr(args, key)
+        if cli_val is not None:
+            final_config[key] = cli_val
+        elif key in yaml_config:
+            final_config[key] = yaml_config[key]
+        else:
+            final_config[key] = def_val
+
+    # 校验必要的参数
+    if not final_config["input_image"]:
+        print("Error: 必须提供输入图像路径。请通过命令行参数 --input_image 或配置文件指定。")
+        exit(1)
+    if not final_config["output_mesh"]:
+        print("Error: 必须提供输出模型路径。请通过命令行参数 --output_mesh 或配置文件指定。")
+        exit(1)
+
+    # 将合并后的最终参数写回 args 命名空间，确保对原有逻辑完全兼容且无侵入性
+    for key, val in final_config.items():
+        setattr(args, key, val)
 
     # 1. 路径与后缀检查
     if not os.path.exists(args.input_image):
