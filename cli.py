@@ -99,7 +99,8 @@ def preprocess_image(image):
 
 def generate_3d(image, seed=-1,  
                 ss_guidance_strength=3, ss_sampling_steps=50,
-                slat_guidance_strength=3, slat_sampling_steps=6,):
+                slat_guidance_strength=3, slat_sampling_steps=6,
+                normal_mode=False):
     """从图像生成 3D 模型的主函数。
 
     Args:
@@ -109,6 +110,7 @@ def generate_3d(image, seed=-1,
         ss_sampling_steps: Stage 1 的采样步数。
         slat_guidance_strength: Stage 2 (Structured Latent) 的 CFG Guidance 强度。
         slat_sampling_steps: Stage 2 的采样步数。
+        normal_mode: 是否为法线直接输入模式。
 
     Returns:
         tuple: (法向图, 模型路径, 下载路径)
@@ -120,10 +122,15 @@ def generate_3d(image, seed=-1,
     if seed == -1:
         seed = np.random.randint(0, MAX_SEED)
     
-    # 预处理输入图像
-    image = hi3dgen_pipeline.preprocess_image(image, resolution=1024)
-    # 使用法向预测器生成法向图（Normal Bridge）
-    normal_image = normal_predictor(image, resolution=768, match_input_resolution=True, data_type='object')
+    if normal_mode:
+        print("当前处于法线直接输入模式，跳过法线预测步骤。")
+        # 预处理输入法线图，确保大小与格式兼容
+        normal_image = hi3dgen_pipeline.preprocess_image(image, resolution=1024)
+    else:
+        # 预处理输入图像
+        image = hi3dgen_pipeline.preprocess_image(image, resolution=1024)
+        # 使用法向预测器生成法向图（Normal Bridge）
+        normal_image = normal_predictor(image, resolution=768, match_input_resolution=True, data_type='object')
 
     # 运行 Hi3DGen 生成管道
     outputs = hi3dgen_pipeline.run(
@@ -153,6 +160,46 @@ def generate_3d(image, seed=-1,
     trimesh_mesh.export(mesh_path)
 
     return normal_image, mesh_path, mesh_path
+
+def save_normal_maps(normal_img, output_mesh_path, normal_predictor):
+    """将法线图分别按照原格式和可视化格式保存到和mesh相同的输出目录。
+
+    Args:
+        normal_img: 预测得到（或输入）的法线图 (PIL Image)。
+        output_mesh_path: 输出的 mesh 文件路径。
+        normal_predictor: 法线估计预测器。
+    """
+    if normal_img is None:
+        print("Warning: 没有可用的法线图。")
+        return
+
+    # 1. 确定保存目录与文件名
+    output_dir = os.path.dirname(os.path.abspath(output_mesh_path))
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+    base_name = os.path.splitext(os.path.basename(output_mesh_path))[0]
+
+    raw_path = os.path.abspath(os.path.join(output_dir, f"{base_name}_normal_raw.png"))
+    vis_path = os.path.abspath(os.path.join(output_dir, f"{base_name}_normal_vis.png"))
+
+    # 2. 保存原格式 (Raw Format)
+    normal_img.save(raw_path)
+    print(f"原始格式法线图已保存至: {raw_path}")
+
+    # 3. 保存可视化格式 (Visualized Format)
+    try:
+        if normal_predictor is not None and hasattr(normal_predictor, 'visualize_normals'):
+            vis_img = normal_predictor.visualize_normals(normal_img)
+            vis_img.save(vis_path)
+            print(f"可视化格式法线图已保存至 (使用内置方法): {vis_path}")
+        else:
+            normal_img.save(vis_path)
+            print(f"可视化格式法线图已保存至 (直接保存原图作为备用): {vis_path}")
+    except Exception as e:
+        print(f"Warning: 内置法线可视化转换失败: {e}")
+        normal_img.save(vis_path)
+        print(f"可视化格式法线图已保存至 (直接保存原图作为备用): {vis_path}")
+
 
 def convert_mesh(mesh_path, export_format):
     """将 Mesh 转换为选定的导出格式。
@@ -188,6 +235,7 @@ if __name__ == "__main__":
     parser.add_argument("--ss_sampling_steps", type=int, default=None, help="Stage 1 采样步数 (默认: 50)")
     parser.add_argument("--slat_guidance_strength", type=float, default=None, help="Stage 2 Guidance 强度 (默认: 3.0)")
     parser.add_argument("--slat_sampling_steps", type=int, default=None, help="Stage 2 采样步数 (默认: 6)")
+    parser.add_argument("--normal_mode", action="store_true", default=None, help="如果指定，则说明输入图像为法线图，直接从法线图生成 3D 模型")
     
     args = parser.parse_args()
 
@@ -199,7 +247,8 @@ if __name__ == "__main__":
         "ss_guidance_strength": 3.0,
         "ss_sampling_steps": 50,
         "slat_guidance_strength": 3.0,
-        "slat_sampling_steps": 6
+        "slat_sampling_steps": 6,
+        "normal_mode": False
     }
 
     # 加载 YAML 配置文件
@@ -252,17 +301,23 @@ if __name__ == "__main__":
     cache_weights(WEIGHTS_DIR)
 
     # 3. 初始化全局变量：Pipeline 和 Normal Predictor 
-    # (为了兼容原封不动复制的 generate_3d 方法中的全局变量引用)
+    # (为了兼容原封不动复制 of generate_3d 方法中的全局变量引用)
     print("初始化模型 Pipeline...")
     global hi3dgen_pipeline
     hi3dgen_pipeline = Hi3DGenPipeline.from_pretrained("weights/trellis-normal-v0-1")
     hi3dgen_pipeline.cuda()
 
     global normal_predictor
-    try:
-        normal_predictor = torch.hub.load(os.path.join(torch.hub.get_dir(), 'hugoycj_StableNormal_main'), "StableNormal_turbo", yoso_version='yoso-normal-v1-8-1', source='local', local_cache_dir='./weights', pretrained=True)
-    except:
-        normal_predictor = torch.hub.load("hugoycj/StableNormal", "StableNormal_turbo", trust_repo=True, yoso_version='yoso-normal-v1-8-1', local_cache_dir='./weights')    
+    normal_predictor = None
+    if not args.normal_mode:
+        print("初始化法线估计模型 (Normal Predictor)...")
+        try:
+            normal_predictor = torch.hub.load(os.path.join(torch.hub.get_dir(), 'hugoycj_StableNormal_main'), "StableNormal_turbo", yoso_version='yoso-normal-v1-8-1', source='local', local_cache_dir='./weights', pretrained=True)
+        except Exception as e:
+            print(f"本地加载失败，尝试从 Hub 加载: {e}")
+            normal_predictor = torch.hub.load("hugoycj/StableNormal", "StableNormal_turbo", trust_repo=True, yoso_version='yoso-normal-v1-8-1', local_cache_dir='./weights')    
+    else:
+        print("检测到法线直接输入模式，跳过加载法线估计模型权重。")
 
     # 4. 加载输入图片 (模拟 Gradio 的 RGBA 转换)
     print(f"加载输入图像: {args.input_image}")
@@ -278,8 +333,12 @@ if __name__ == "__main__":
         ss_guidance_strength=args.ss_guidance_strength,
         ss_sampling_steps=args.ss_sampling_steps,
         slat_guidance_strength=args.slat_guidance_strength,
-        slat_sampling_steps=args.slat_sampling_steps
+        slat_sampling_steps=args.slat_sampling_steps,
+        normal_mode=args.normal_mode
     )
+
+    # 保存预测得到的 (或者输入) 的法线图到与 mesh 相同的输出目录
+    save_normal_maps(normal_img, args.output_mesh, normal_predictor)
 
     if not original_mesh_path or not os.path.exists(original_mesh_path):
         print("Error: 3D 模型生成失败。")
