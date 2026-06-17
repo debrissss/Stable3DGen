@@ -2,3 +2,8 @@ __pycache__
 assets/example_image
 assets/example_multi_image
 assets/teaser.gif
+.gradio/
+input/
+output/
+tmp/
+weights/
