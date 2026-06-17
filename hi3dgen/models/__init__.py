@@ -44,6 +44,12 @@ __submodules = []
 __all__ = list(__attributes.keys()) + __submodules
 
 def __getattr__(name):
+    requested_name = name
+    # 自定义权重可能包含原本 Trellis 代码库中的 ElasticSLatFlowModel 类名
+    # 对其进行别名映射，指向当前仓库中的 SLatFlowModel
+    if name == 'ElasticSLatFlowModel':
+        name = 'SLatFlowModel'
+
     if name not in globals():
         if name in __attributes:
             module_name = __attributes[name]
@@ -54,6 +60,11 @@ def __getattr__(name):
             globals()[name] = module
         else:
             raise AttributeError(f"module {__name__} has no attribute {name}")
+            
+    if requested_name != name:
+        globals()[requested_name] = globals()[name]
+        return globals()[requested_name]
+
     return globals()[name]
 
 
