@@ -79,10 +79,28 @@ class Pipeline:
         _models = {}
         for k, v in args['models'].items():
             if k == 'slat_flow_model' and slat_flow_model_path is not None:
-                if '/' in slat_flow_model_path or os.path.isabs(slat_flow_model_path):
+                default_dir_prefix = os.path.dirname(v) # 例如 "ckpts"
+                if os.path.isabs(slat_flow_model_path):
+                    model_path = slat_flow_model_path
+                elif slat_flow_model_path.startswith("weights/") or slat_flow_model_path.startswith("./") or slat_flow_model_path.startswith("../"):
                     model_path = slat_flow_model_path
                 else:
-                    model_path = f"{path}/{slat_flow_model_path}"
+                    # 尝试拼接预训练目录和默认子文件夹路径
+                    candidate1 = f"{path}/{default_dir_prefix}/{slat_flow_model_path}" if default_dir_prefix else f"{path}/{slat_flow_model_path}"
+                    candidate2 = f"{path}/{slat_flow_model_path}"
+                    
+                    # 优先检测本地文件是否存在
+                    if os.path.exists(f"{candidate1}.json") or os.path.exists(f"{candidate1}.safetensors"):
+                        model_path = candidate1
+                    elif os.path.exists(f"{candidate2}.json") or os.path.exists(f"{candidate2}.safetensors"):
+                        model_path = candidate2
+                    else:
+                        # 本地都不存在时，如果包含 '/' 则可能是 HF repo 路径，否则默认使用 candidate1
+                        if '/' in slat_flow_model_path and not slat_flow_model_path.startswith(default_dir_prefix + "/"):
+                            model_path = slat_flow_model_path
+                        else:
+                            model_path = candidate1
+                
                 print(f"Loading custom slat_flow_model from: {model_path}")
                 _models[k] = models.from_pretrained(model_path)
             else:
