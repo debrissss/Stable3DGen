@@ -69,11 +69,24 @@ def from_pretrained(path: str, **kwargs):
     import os
     import json
     from safetensors.torch import load_file
+    
+    is_local_path = path.startswith("weights/") or os.path.isabs(path) or path.startswith("./") or path.startswith("../")
     is_local = os.path.exists(f"{path}.json") and os.path.exists(f"{path}.safetensors")
 
     if is_local:
         config_file = f"{path}.json"
         model_file = f"{path}.safetensors"
+    elif is_local_path:
+        dir_name = os.path.dirname(path)
+        existing_files = os.listdir(dir_name) if os.path.exists(dir_name) else []
+        raise FileNotFoundError(
+            f"\n[Error] 本地模型文件检测失败！\n"
+            f"期望的路径: {path}\n"
+            f"JSON 配置文件: {path}.json (存在: {os.path.exists(f'{path}.json')})\n"
+            f"Safetensors 权重文件: {path}.safetensors (存在: {os.path.exists(f'{path}.safetensors')})\n"
+            f"当前目录 {os.path.abspath(dir_name)} 下的实际文件列表: {existing_files}\n"
+            f"请检查文件名拼写（注意大小写）、后缀名（必须是 .json 和 .safetensors）以及所处目录。"
+        )
     else:
         from huggingface_hub import hf_hub_download
         path_parts = path.split('/')
