@@ -83,16 +83,17 @@ class Hi3DGenPipeline(Pipeline):
         self._init_image_cond_model(image_cond_model)
 
     @staticmethod
-    def from_pretrained(path: str) -> "Hi3DGenPipeline":
+    def from_pretrained(path: str, slat_flow_model_path: str = None) -> "Hi3DGenPipeline":
         """从预训练路径加载 Hi3DGen 流水线。
 
         Args:
             path: 本地路径或 Hugging Face 仓库名称。
+            slat_flow_model_path: 自定义结构化潜空间流模型的权重路径。
 
         Returns:
             加载后的 Hi3DGenPipeline 实例。
         """
-        pipeline = super(Hi3DGenPipeline, Hi3DGenPipeline).from_pretrained(path)
+        pipeline = super(Hi3DGenPipeline, Hi3DGenPipeline).from_pretrained(path, slat_flow_model_path=slat_flow_model_path)
         new_pipeline = Hi3DGenPipeline()
         new_pipeline.__dict__ = pipeline.__dict__
         args = pipeline._pretrained_args

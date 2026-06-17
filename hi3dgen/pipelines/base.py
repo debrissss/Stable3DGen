@@ -50,11 +50,12 @@ class Pipeline:
             model.eval()
 
     @staticmethod
-    def from_pretrained(path: str) -> "Pipeline":
+    def from_pretrained(path: str, slat_flow_model_path: str = None) -> "Pipeline":
         """从预训练路径加载流水线。
 
         Args:
             path: 本地路径或 Hugging Face 模型库标识符。
+            slat_flow_model_path: 自定义结构化潜空间流模型的权重路径。
 
         Returns:
             实例化并加载后的流水线对象。
@@ -75,10 +76,17 @@ class Pipeline:
             args = json.load(f)['args']
 
         # 递归加载所有子模型
-        _models = {
-            k: models.from_pretrained(f"{path}/{v}")
-            for k, v in args['models'].items()
-        }
+        _models = {}
+        for k, v in args['models'].items():
+            if k == 'slat_flow_model' and slat_flow_model_path is not None:
+                if '/' in slat_flow_model_path or os.path.isabs(slat_flow_model_path):
+                    model_path = slat_flow_model_path
+                else:
+                    model_path = f"{path}/{slat_flow_model_path}"
+                print(f"Loading custom slat_flow_model from: {model_path}")
+                _models[k] = models.from_pretrained(model_path)
+            else:
+                _models[k] = models.from_pretrained(f"{path}/{v}")
 
         new_pipeline = Pipeline(_models)
         new_pipeline._pretrained_args = args

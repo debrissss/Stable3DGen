@@ -117,7 +117,8 @@ def preprocess_image(image):
 
 def generate_3d(image, seed=-1,  
                 ss_guidance_strength=3, ss_sampling_steps=50,
-                slat_guidance_strength=3, slat_sampling_steps=6,):
+                slat_guidance_strength=3, slat_sampling_steps=6,
+                slat_flow_model_path=None):
     """从图像生成 3D 模型的主函数。
 
     Args:
@@ -127,12 +128,35 @@ def generate_3d(image, seed=-1,
         ss_sampling_steps: Stage 1 的采样步数。
         slat_guidance_strength: Stage 2 (Structured Latent) 的 CFG Guidance 强度。
         slat_sampling_steps: Stage 2 的采样步数。
+        slat_flow_model_path: 自定义结构化潜空间流模型的权重路径。
 
     Returns:
         tuple: (法向图, 模型路径, 下载路径)
     """
     if image is None:
         return None, None, None
+
+    global hi3dgen_pipeline
+    current_slat_path = getattr(hi3dgen_pipeline, '_slat_flow_model_path', None)
+    
+    # 标准化路径比较，空字符串或默认值均视同为 None (即 pipeline.json 里的默认设置)
+    norm_slat_flow_model_path = slat_flow_model_path
+    if slat_flow_model_path == "slat_flow_normal_dit_L_64l8p2_fp16" or not slat_flow_model_path or slat_flow_model_path.strip() == "":
+        norm_slat_flow_model_path = None
+        
+    norm_current_slat_path = current_slat_path
+    if current_slat_path == "slat_flow_normal_dit_L_64l8p2_fp16":
+        norm_current_slat_path = None
+
+    if norm_slat_flow_model_path != norm_current_slat_path:
+        print(f"Switching slat_flow_model from {current_slat_path} to {slat_flow_model_path}...")
+        if hi3dgen_pipeline is not None:
+            hi3dgen_pipeline.cpu()
+            del hi3dgen_pipeline
+            torch.cuda.empty_cache()
+        hi3dgen_pipeline = Hi3DGenPipeline.from_pretrained("weights/trellis-normal-v0-1", slat_flow_model_path=norm_slat_flow_model_path)
+        hi3dgen_pipeline._slat_flow_model_path = norm_slat_flow_model_path
+        hi3dgen_pipeline.cuda()
 
     # 如果 seed 为 -1，则随机生成一个种子
     if seed == -1:
@@ -240,6 +264,15 @@ with gr.Blocks(css="footer {visibility: hidden}") as demo:
                     gr.Markdown("<div style='text-align: center; padding: 40px; font-size: 24px;'>Multiple Images functionality is coming soon!</div>")
                         
             with gr.Accordion("Advanced Settings", open=False):
+                slat_flow_model_path = gr.Dropdown(
+                    choices=[
+                        "slat_flow_normal_dit_L_64l8p2_fp16",
+                        "slat_flow_normal_dit_M_64l8p2_fp16"
+                    ],
+                    value="slat_flow_normal_dit_L_64l8p2_fp16",
+                    label="Structured Latent Flow Model (slat_flow_model 权重名称/路径)",
+                    allow_custom_value=True
+                )
                 seed = gr.Slider(-1, MAX_SEED, label="Seed", value=0, step=1)
                 gr.Markdown("#### Stage 1: Sparse Structure Generation")
                 with gr.Row():
@@ -278,7 +311,8 @@ with gr.Blocks(css="footer {visibility: hidden}") as demo:
         inputs=[
             image_prompt, seed,  
             ss_guidance_strength, ss_sampling_steps,
-            slat_guidance_strength, slat_sampling_steps
+            slat_guidance_strength, slat_sampling_steps,
+            slat_flow_model_path
         ],
         outputs=[normal_output, model_output, download_btn]
     ).then(
@@ -328,6 +362,7 @@ if __name__ == "__main__":
 
     # 初始化 Hi3DGen Pipeline
     hi3dgen_pipeline = Hi3DGenPipeline.from_pretrained("weights/trellis-normal-v0-1")
+    hi3dgen_pipeline._slat_flow_model_path = None
     hi3dgen_pipeline.cuda()
 
     # 初始化 Normal Predictor (法向估计模型)
