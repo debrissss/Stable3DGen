@@ -237,6 +237,7 @@ if __name__ == "__main__":
     parser.add_argument("--slat_sampling_steps", type=int, default=None, help="Stage 2 采样步数 (默认: 6)")
     parser.add_argument("--normal_mode", action="store_true", default=None, help="如果指定，则说明输入图像为法线图，直接从法线图生成 3D 模型")
     parser.add_argument("--slat_flow_model_path", type=str, default=None, help="结构化潜空间流模型 (slat_flow_model) 的权重路径或名称")
+    parser.add_argument("--ss_flow_model_path", type=str, default=None, help="稀疏结构流模型 (ss_flow_model) 的权重路径或名称")
     
     args = parser.parse_args()
 
@@ -250,7 +251,8 @@ if __name__ == "__main__":
         "slat_guidance_strength": 3.0,
         "slat_sampling_steps": 6,
         "normal_mode": False,
-        "slat_flow_model_path": None
+        "slat_flow_model_path": None,
+        "ss_flow_model_path": None
     }
 
     # 加载 YAML 配置文件
@@ -306,7 +308,7 @@ if __name__ == "__main__":
     # (为了兼容原封不动复制 of generate_3d 方法中的全局变量引用)
     print("初始化模型 Pipeline...")
     global hi3dgen_pipeline
-    hi3dgen_pipeline = Hi3DGenPipeline.from_pretrained("weights/trellis-normal-v0-1", slat_flow_model_path=args.slat_flow_model_path)
+    hi3dgen_pipeline = Hi3DGenPipeline.from_pretrained("weights/trellis-normal-v0-1", slat_flow_model_path=args.slat_flow_model_path, ss_flow_model_path=args.ss_flow_model_path)
     hi3dgen_pipeline.cuda()
 
     global normal_predictor

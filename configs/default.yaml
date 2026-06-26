@@ -41,6 +41,13 @@ normal_mode: false
 #   - 可指定本地绝对路径或其它 Hugging Face 上的模型路径
 slat_flow_model_path: null
 
+# 稀疏结构流模型 (ss_flow_model) 的权重路径或名称。
+# 默认值: null
+# 更改效果:
+#   - 可指定其它同架构权重文件的文件名
+#   - 可指定本地绝对路径或其它 Hugging Face 上的模型路径
+ss_flow_model_path: null
+
 
 # ==============================================================================
 # 2. Stage 1: Sparse Structure (稀疏结构生成控制)

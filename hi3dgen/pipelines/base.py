@@ -50,12 +50,13 @@ class Pipeline:
             model.eval()
 
     @staticmethod
-    def from_pretrained(path: str, slat_flow_model_path: str = None) -> "Pipeline":
+    def from_pretrained(path: str, slat_flow_model_path: str = None, ss_flow_model_path: str = None) -> "Pipeline":
         """从预训练路径加载流水线。
 
         Args:
             path: 本地路径或 Hugging Face 模型库标识符。
             slat_flow_model_path: 自定义结构化潜空间流模型的权重路径。
+            ss_flow_model_path: 自定义稀疏结构流模型的权重路径。
 
         Returns:
             实例化并加载后的流水线对象。
@@ -102,6 +103,31 @@ class Pipeline:
                             model_path = candidate1
                 
                 print(f"Loading custom slat_flow_model from: {model_path}")
+                _models[k] = models.from_pretrained(model_path)
+            elif k == 'ss_flow_model' and ss_flow_model_path is not None:
+                default_dir_prefix = os.path.dirname(v) # 例如 "ckpts"
+                if os.path.isabs(ss_flow_model_path):
+                    model_path = ss_flow_model_path
+                elif ss_flow_model_path.startswith("weights/") or ss_flow_model_path.startswith("./") or ss_flow_model_path.startswith("../"):
+                    model_path = ss_flow_model_path
+                else:
+                    # 尝试拼接预训练目录和默认子文件夹路径
+                    candidate1 = f"{path}/{default_dir_prefix}/{ss_flow_model_path}" if default_dir_prefix else f"{path}/{ss_flow_model_path}"
+                    candidate2 = f"{path}/{ss_flow_model_path}"
+                    
+                    # 优先检测本地文件是否存在
+                    if os.path.exists(f"{candidate1}.json") or os.path.exists(f"{candidate1}.safetensors"):
+                        model_path = candidate1
+                    elif os.path.exists(f"{candidate2}.json") or os.path.exists(f"{candidate2}.safetensors"):
+                        model_path = candidate2
+                    else:
+                        # 本地都不存在时，如果包含 '/' 则可能是 HF repo 路径，否则默认使用 candidate1
+                        if '/' in ss_flow_model_path and not ss_flow_model_path.startswith(default_dir_prefix + "/"):
+                            model_path = ss_flow_model_path
+                        else:
+                            model_path = candidate1
+                
+                print(f"Loading custom ss_flow_model from: {model_path}")
                 _models[k] = models.from_pretrained(model_path)
             else:
                 _models[k] = models.from_pretrained(f"{path}/{v}")
