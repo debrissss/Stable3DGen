@@ -104,7 +104,7 @@ class Pipeline:
                 
                 print(f"Loading custom slat_flow_model from: {model_path}")
                 _models[k] = models.from_pretrained(model_path)
-            elif k == 'ss_flow_model' and ss_flow_model_path is not None:
+            elif k == 'sparse_structure_flow_model' and ss_flow_model_path is not None:
                 default_dir_prefix = os.path.dirname(v) # 例如 "ckpts"
                 if os.path.isabs(ss_flow_model_path):
                     model_path = ss_flow_model_path
