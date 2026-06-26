@@ -110,6 +110,7 @@ def from_pretrained(path: str, **kwargs):
         config = json.load(f)
     model = __getattr__(config['name'])(**config['args'], **kwargs)
     model.load_state_dict(load_file(model_file))
+    print(f"✅ 成功加载子模块权重: {path} (模型架构: {config['name']})")
 
     return model
 
